@@ -1,25 +1,32 @@
 <template>
   <div class="home">
     <img alt="Vue logo" src="../assets/logo.png" />
-    <HelloWorld msg="Welcome to Your Vue.js + TypeScript App" />
-    <Slider :style="{ width: '800px', margin: '0 auto' }" />
+    <TableDraggable :items="items" />
   </div>
 </template>
 
 <script lang="ts">
 import Vue from "vue";
-import HelloWorld from "@/components/TableDraggable.vue"; // @ is an alias to /src
-import Slider from "@/components/Slider.vue"; // @ is an alias to /src
-let sayings = new Map();
+import TableDraggable from "@/components/TableDraggable.vue";
+import Item from "@/store/models/Item";
+
 export default Vue.extend({
   name: "Home",
   components: {
-    HelloWorld,
-    Slider,
+    TableDraggable,
   },
 
   data() {
-    return {};
+    return {
+      items: [
+        new Item(1, "Simmons", 1, 0, 10, 0),
+        new Item(2, "Jacobs", 2, 1, 12, 1),
+        new Item(3, "Gilbert", 1, 1, 22, 2),
+        new Item(4, "Flores", 4, 1, 1, 3),
+      ],
+    };
   },
+
+  methods: {},
 });
 </script>

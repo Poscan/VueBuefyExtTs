@@ -1,23 +1,25 @@
 <template>
   <b-slider
     :value="value"
-    :min="min"
-    :max="max"
+    :min="minBorder"
+    :max="maxBorder"
     :tooltip="false"
     @input="(value) => input(value)"
   >
-    <b-slider-tick v-for="val in interval" :key="val" :value="val" />
+    <b-slider-tick v-for="val in ticksArray" :key="val" :value="val" />
   </b-slider>
 </template>
 
 <script lang="ts">
 import Vue from "vue";
+import range from "lodash/range";
 
 export default Vue.extend({
   props: {
-    value: {
-      type: Number,
-    },
+    value: Number,
+    ticks: Array as () => Array<number>,
+    min: Number,
+    max: Number,
   },
 
   model: {
@@ -25,43 +27,46 @@ export default Vue.extend({
     event: "input",
   },
 
-  data() {
-    return {
-      interval: [
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
-        21, 28, 30, 31, 35, 42, 49, 56,
-      ],
-      min: 0,
-      max: 0,
-      editValue: 0,
-    };
+  computed: {
+    minBorder(): number {
+      if (this.min) return this.min;
+      if (this.ticks) return this.ticks[0];
+
+      return 0;
+    },
+
+    maxBorder(): number {
+      if (this.max) return this.max;
+      if (this.ticks) return this.ticks[this.ticks.length - 1];
+
+      return 0;
+    },
+
+    ticksArray(): number[] {
+      return this.ticks ? this.ticks : range(this.min, this.max + 1);
+    },
   },
 
   methods: {
     input(value: number) {
-      if (!value) return;
+      if (typeof value == typeof Number) return;
 
-      if (this.interval.includes(value)) {
+      if (this.ticksArray.includes(value)) {
         this.$emit("input", new Number(value));
         return;
       }
 
-      var closestElement = this.interval.filter((x) => x >= value)[0];
-      var nextIndex = this.interval.findIndex((x) => x == closestElement);
+      var closestElement = this.ticks.filter((x) => x >= value)[0];
+      var nextIndex = this.ticks.findIndex((x) => x == closestElement);
 
-      var nextValue = this.interval[nextIndex];
-      var lastValue = this.interval[nextIndex - 1];
+      var nextValue = this.ticks[nextIndex];
+      var lastValue = this.ticks[nextIndex - 1];
 
       var subLast = value - lastValue;
       var subNext = nextValue - value;
 
       this.$emit("input", subLast <= subNext ? lastValue : nextValue);
     },
-  },
-
-  mounted() {
-    this.min = this.min ? this.min : this.interval[0];
-    this.max = this.max ? this.max : this.interval[this.interval.length - 1];
   },
 });
 </script>

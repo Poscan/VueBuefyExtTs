@@ -1,7 +1,7 @@
 <template>
   <div>
     <b-table
-      :data="sortedData"
+      :data="sortedItems"
       draggable
       custom-row-key="id"
       @dragstart="dragstart"
@@ -10,34 +10,38 @@
       @dragleave="dragleave"
     >
       <b-table-column v-slot="props" width="10px">
-        <div class="is-flex is-flex-direction-column">
-          <b-button
-            class="mb-1"
-            size="is-small"
-            type="is-warning"
-            icon-right="chevron-up"
-            @click="up(props.row)"
-          />
-          <b-button
-            size="is-small"
-            type="is-warning"
-            icon-right="chevron-down"
-            @click="down(props.row)"
-          />
-        </div>
+        <b-button
+          class="mb-1"
+          size="is-small"
+          type="is-warning"
+          icon-right="chevron-up"
+          @click="up(props.row)"
+        />
+        <b-button
+          size="is-small"
+          type="is-warning"
+          icon-right="chevron-down"
+          @click="down(props.row)"
+        />
       </b-table-column>
 
-      <b-table-column label="id" v-slot="props">
-        {{ props.row.first_name }}
-        <Sidebar ref="side" v-model="props.row.first_name"
-      /></b-table-column>
-
-      <b-table-column label="id" v-slot="props">{{
-        props.row.id
+      <b-table-column label="name" v-slot="props">{{
+        props.row.name
       }}</b-table-column>
 
-      <b-table-column label="last name" v-slot="props"
-        >{{ props.row.last_name }}
+      <b-table-column label="scheduleOffset" v-slot="props" width="100px">
+        {{ convertDay(props.row.scheduleOffset) }}
+        <Slider :min="0" :max="1" v-model="props.row.scheduleOffset"
+      /></b-table-column>
+
+      <b-table-column label="scheduleDuration" width="500px" v-slot="props">
+        {{ convertDate(props.row.scheduleDuration) }}
+        <Slider :ticks="ticks" v-model="props.row.scheduleDuration"
+      /></b-table-column>
+
+      <b-table-column label="lastDayAvailableSlider" v-slot="props"
+        >{{ convertTime(props.row.lastDayAvailableSlider) }}
+        <Slider :min="0" :max="23" v-model="props.row.lastDayAvailableSlider" />
       </b-table-column>
     </b-table>
   </div>
@@ -45,77 +49,75 @@
 
 <script lang="ts">
 import lodash from "lodash";
-import Sidebar from "@/components/Slider.vue";
+import Slider from "@/components/Slider.vue";
 import Vue, { VueConstructor } from "vue";
-
-class Item {
-  constructor(
-    id: number,
-    first_name: number,
-    last_name: string,
-    date: string,
-    gender: string,
-    index: number
-  ) {
-    this.id = id;
-    this.first_name = first_name;
-    this.last_name = last_name;
-    this.date = date;
-    this.gender = gender;
-    this.index = index;
-  }
-
-  id: number;
-  first_name: number;
-  last_name: string;
-  date: string;
-  gender: string;
-  index: number;
-}
+import { convertStringDate } from "@/components/helper/convertStringDate";
+import { convertStringTime } from "@/components/helper/convertStringTime";
+import Item from "@/store/models/Item";
 
 export default (
   Vue as VueConstructor<
     Vue & {
       $refs: {
-        side: InstanceType<typeof Sidebar>;
+        side: InstanceType<typeof Slider>;
       };
     }
   >
 ).extend({
   components: {
-    Sidebar,
+    Slider,
+  },
+
+  props: {
+    items: Array as () => Array<Item>,
   },
 
   data() {
     return {
-      data: new Array<Item>(),
       draggingRow: 0,
       draggingRowIndex: 0,
+      ticks: [
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+        21, 28, 30, 31, 35, 42, 49, 56,
+      ],
     };
   },
 
   computed: {
-    sortedData() {
-      console.log(this.data);
-      return lodash.sortBy(this.$data.data, (x: Item) => x.index);
+    sortedItems(): Item[] {
+      return lodash.sortBy(this.items, (x: Item) => x.sortIndex);
     },
   },
 
   methods: {
+    convertDate(value: string) {
+      return convertStringDate(value);
+    },
+
+    convertTime(value: string) {
+      return convertStringTime(value);
+    },
+
+    convertDay(value: string) {
+      const day = parseInt(value);
+
+      return day == 0 ? "сегодня" : "завтра";
+    },
+
     down(payload: Item) {
-      var item = this.data.find((x) => x.index == payload.index + 1);
+      const item = this.items.find((x) => x.sortIndex == payload.sortIndex + 1);
       if (!item) return;
 
-      item.index--;
-      payload.index++;
+      item.sortIndex--;
+      payload.sortIndex++;
     },
 
     up(payload: Item) {
-      var item = this.data.find((x) => x.index == payload.index - 1);
+      const item = this.items.find((x) => x.sortIndex == payload.sortIndex - 1);
       if (!item) return;
 
-      item.index++;
-      payload.index--;
+      item.sortIndex++;
+      payload.sortIndex--;
     },
 
     dragstart(payload: any) {
@@ -123,66 +125,58 @@ export default (
       this.draggingRowIndex = payload.index;
       payload.event.dataTransfer.effectAllowed = "copy";
     },
+
     dragover(payload: any) {
       payload.event.dataTransfer.dropEffect = "copy";
       payload.event.target.closest("tr").classList.add("is-selected");
       payload.event.preventDefault();
     },
+
     dragleave(payload: any) {
       payload.event.target.closest("tr").classList.remove("is-selected");
       payload.event.preventDefault();
     },
+
     drop(payload: any) {
       payload.event.target.closest("tr").classList.remove("is-selected");
       const droppedOnRowIndex = payload.index;
 
-      var indexReplace = this.data.findIndex(
-        (x) => x.index == droppedOnRowIndex
+      const sortIndexReplace = this.items.findIndex(
+        (x) => x.sortIndex == droppedOnRowIndex
       );
-      var dropIndexReplace = this.data.findIndex(
-        (x) => x.index == this.draggingRowIndex
+      const dropsortIndexReplace = this.items.findIndex(
+        (x) => x.sortIndex == this.draggingRowIndex
       );
 
-      this.data[dropIndexReplace].index = droppedOnRowIndex;
-      var id = this.data[indexReplace].id;
+      this.items[dropsortIndexReplace].sortIndex = droppedOnRowIndex;
+      const id = this.items[sortIndexReplace].id;
 
       if (droppedOnRowIndex < this.draggingRowIndex) {
-        this.data[indexReplace].index++;
+        this.items[sortIndexReplace].sortIndex++;
 
-        this.data.forEach((x) => {
+        this.items.forEach((x) => {
           if (
-            x.index > droppedOnRowIndex &&
+            x.sortIndex > droppedOnRowIndex &&
             x.id != id &&
-            x.index < this.draggingRowIndex
+            x.sortIndex < this.draggingRowIndex
           )
-            x.index++;
+            x.sortIndex++;
         });
       }
 
       if (droppedOnRowIndex > this.draggingRowIndex) {
-        this.data[indexReplace].index--;
+        this.items[sortIndexReplace].sortIndex--;
 
-        this.data.forEach((x) => {
+        this.items.forEach((x) => {
           if (
-            x.index < droppedOnRowIndex &&
+            x.sortIndex < droppedOnRowIndex &&
             x.id != id &&
-            x.index > this.draggingRowIndex
+            x.sortIndex > this.draggingRowIndex
           )
-            x.index--;
+            x.sortIndex--;
         });
       }
     },
-  },
-
-  created() {
-    this.data = [
-      new Item(1, 1, "Simmons", "2016-10-15 13:43:27", "Male", 0),
-      new Item(2, 2, "Jacobs", "2016-12-15 06:00:53", "Male", 1),
-      new Item(3, 1, "Gilbert", "2016-04-26 06:26:28", "Female", 2),
-      new Item(4, 4, "Flores", "2016-04-10 10:28:46", "Male", 3),
-    ];
-
-    console.log(this.data);
   },
 });
 </script>
@@ -190,5 +184,10 @@ export default (
 <style scoped>
 * >>> tr > td {
   vertical-align: middle !important;
+  text-align: start;
+}
+
+.width {
+  width: 700px;
 }
 </style>
